@@ -1,0 +1,44 @@
+[project]
+name = "example"
+version = "0.1.0"
+language = "C++"
+
+# Глобальные переменные окружения для сборки (опционально)
+# env = [["GLOBAL_VAR", "value"]]
+# Описание проекта (опционально)
+# description = "Example project with all flags"
+
+[[dependencies]]
+name = "fmt"
+source = "git"
+location = "https://github.com/fmtlib/fmt.git"
+
+[[targets]]
+name = "hell"
+out_dir = "bin"
+os_target = "macos"
+compiler = "clang++"
+kind = "executable"
+sources = ["src/main.cpp"]
+includes = ["deps/fmt/include"]
+defines = ["DEBUG=1"]
+compiler_flags = ["-std=c++17", "-Wall", "-Wextra"]
+linker_flags = ["-Ldeps/fmt/build", "-lfmt"]
+pre_build_scripts = [
+  "cd deps/fmt && cmake -B build && cmake --build build"
+]
+post_build_scripts = [
+  "echo Build complete!"
+]
+# Переменные окружения только для этого таргета
+env = [["MY_VAR", "123"]]
+# Рабочая директория для сборки (опционально)
+working_dir = "src"
+# Кастомный путь для выходного файла (опционально)
+custom_output = "bin/custom_hell.out"
+# Дополнительные шаги (опционально)
+extra_steps = ["echo Extra step"]
+# Включён ли таргет (опционально, по умолчанию true)
+enabled = true
+# Описание таргета (опционально)
+description = "Main executable with all flags enabled"
