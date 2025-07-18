@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://gitlab.com/mentalgrp/mental.promo/-/raw/main/Logos/constructor_1280x800.png?ref_type=heads" width="400"/>
+  <img src="https://gitlab.com/mentalgrp/mental.promo/-/raw/main/Logos/constructor_1280x800.png?ref_type=heads"/>
 </div>
 
 # Constructor
