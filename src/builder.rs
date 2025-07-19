@@ -192,16 +192,21 @@ impl DefaultBuilder for Builder
         let cache_file_path = format!("{}/.build_cache_{}.txt", target.out_dir, target.name);
         let mut need_rebuild = true;
         let mut prev_hash: Option<u64> = None;
-        if let Ok(mut cache_file) = File::open(&cache_file_path) {
-            let mut prev_hash_str = String::new();
-            cache_file.read_to_string(&mut prev_hash_str)?;
-            if let Ok(h) = prev_hash_str.trim().parse::<u64>() {
-                prev_hash = Some(h);
-                if h == hash {
-                    println!("Target '{}' is up to date (cache hit), skipping build.", target.name);
-                    need_rebuild = false;
+        // Если force_rebuild == true, кеширование полностью игнорируется и всегда происходит пересборка
+        if !self.force_rebuild {
+            if let Ok(mut cache_file) = File::open(&cache_file_path) {
+                let mut prev_hash_str = String::new();
+                cache_file.read_to_string(&mut prev_hash_str)?;
+                if let Ok(h) = prev_hash_str.trim().parse::<u64>() {
+                    prev_hash = Some(h);
+                    if h == hash {
+                        println!("Target '{}' is up to date (cache hit), skipping build.", target.name);
+                        need_rebuild = false;
+                    }
                 }
             }
+        } else {
+            // Кеширование игнорируется, всегда пересобираем
         }
         if need_rebuild {
             // Подробный лог изменений
@@ -436,16 +441,20 @@ fn build_target_static(target: crate::config::TargetConfig, dependencies: Option
     let cache_file_path = format!("{}/.build_cache_{}.txt", target.out_dir, target.name);
     let mut need_rebuild = true;
     let mut prev_hash: Option<u64> = None;
-    if let Ok(mut cache_file) = File::open(&cache_file_path) {
-        let mut prev_hash_str = String::new();
-        cache_file.read_to_string(&mut prev_hash_str)?;
-        if let Ok(h) = prev_hash_str.trim().parse::<u64>() {
-            prev_hash = Some(h);
-            if h == hash {
-                println!("Target '{}' is up to date (cache hit), skipping build.", target.name);
-                need_rebuild = false;
+    if !force_rebuild {
+        if let Ok(mut cache_file) = File::open(&cache_file_path) {
+            let mut prev_hash_str = String::new();
+            cache_file.read_to_string(&mut prev_hash_str)?;
+            if let Ok(h) = prev_hash_str.trim().parse::<u64>() {
+                prev_hash = Some(h);
+                if h == hash {
+                    println!("Target '{}' is up to date (cache hit), skipping build.", target.name);
+                    need_rebuild = false;
+                }
             }
         }
+    } else {
+        // Кеширование игнорируется, всегда пересобираем
     }
     if need_rebuild {
         if let Some(old_hash) = prev_hash {
