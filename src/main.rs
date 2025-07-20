@@ -18,6 +18,9 @@ struct Args {
 
     #[arg(long)]
     force: bool,
+
+    #[arg(long)]
+    makefile: bool,
 }
 
 fn main() -> Result<()>
@@ -35,6 +38,12 @@ fn main() -> Result<()>
 
     info!("Loading configuration from {}...", args.config);
     let config = config::load_config(&args.config)?;
+
+    if args.makefile {
+        let builder = builder::Builder::new(config, args.force);
+        builder.generate_makefile()?;
+        return Ok(());
+    }
 
     info!("Loading configuration from {}...", args.config);
     let builder = builder::Builder::new(config, args.force);

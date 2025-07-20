@@ -324,6 +324,15 @@ impl DefaultBuilder for Builder
             command.arg(source);
         }
         
+        // Добавляем MacOS frameworks
+        if target.os_target.to_lowercase() == "macos" {
+            if let Some(frameworks) = &target.frameworks {
+                for fw in frameworks {
+                    command.arg("-framework").arg(fw);
+                }
+            }
+        }
+        
         // Флаги линковки
         if let Some(linker_flags) = &target.linker_flags {
             for flag in linker_flags {
@@ -351,6 +360,9 @@ impl DefaultBuilder for Builder
         };
         
         command.arg("-o").arg(&output);
+        
+        // Печатаем сгенерированную команду
+        println!("[build] Generated command: {:?}", command);
         
         // Запускаем компиляцию
         let status = command.status()?;
@@ -396,6 +408,94 @@ impl Builder {
                 }
             }
         }
+        Ok(())
+    }
+
+    pub fn generate_makefile(&self) -> Result<()> {
+        let mut makefile = String::new();
+        let project_name = &self.config.project.name;
+        makefile.push_str(&format!("PROJECT_NAME = {}\n", project_name));
+        for target in &self.config.targets {
+            if let Some(false) = target.enabled { continue; }
+            makefile.push_str(&format!("CC = {}\n", target.compiler));
+            // CFLAGS
+            let mut cflags = String::new();
+            if let Some(flags) = &target.compiler_flags {
+                for flag in flags {
+                    cflags.push_str(flag);
+                    cflags.push(' ');
+                }
+            }
+            makefile.push_str(&format!("CFLAGS = {}\n", cflags.trim_end()));
+            // LDFLAGS
+            let mut ldflags = String::new();
+            if let Some(flags) = &target.linker_flags {
+                for flag in flags {
+                    ldflags.push_str(flag);
+                    ldflags.push(' ');
+                }
+            }
+            // FRAMEWORKS (macOS)
+            if target.os_target.to_lowercase() == "macos" {
+                if let Some(frameworks) = &target.frameworks {
+                    for fw in frameworks {
+                        ldflags.push_str(&format!(" -framework {}", fw));
+                    }
+                }
+            }
+            makefile.push_str(&format!("LDFLAGS = {}\n", ldflags.trim_end()));
+            // DEFINES
+            let mut defines = String::new();
+            if let Some(defs) = &target.defines {
+                for d in defs {
+                    defines.push_str(&format!(" -D{}", d));
+                }
+            }
+            makefile.push_str(&format!("DEFINES = {}\n", defines.trim_end()));
+            // INCLUDES
+            let mut includes = String::new();
+            if let Some(incs) = &target.includes {
+                for inc in incs {
+                    includes.push_str(&format!(" -I{}", inc));
+                }
+            }
+            makefile.push_str(&format!("INCLUDES = {}\n", includes.trim_end()));
+            // SOURCES
+            makefile.push_str(&format!("SOURCES = {}\n", target.sources.join(" ")));
+            // OUTPUT
+            let output = match target.kind.as_str() {
+                "executable" => format!("{}/{}", target.out_dir, target.name),
+                "staticlib" => format!("{}/lib{}.a", target.out_dir, target.name),
+                "dynamiclib" => format!("{}/lib{}.so", target.out_dir, target.name),
+                _ => continue,
+            };
+            makefile.push_str(&format!("OUTPUT = {}\n", output));
+            makefile.push_str("\n");
+            // Цель
+            makefile.push_str(&format!("{}: $(SOURCES)\n", target.name));
+            makefile.push_str("\t$(CC) $(CFLAGS) $(DEFINES) $(INCLUDES) $(SOURCES) $(LDFLAGS) -o $(OUTPUT)\n\n");
+        }
+        // Собираем имена целей и выходные файлы
+        let mut target_names = Vec::new();
+        let mut outputs = Vec::new();
+        for target in &self.config.targets {
+            if let Some(false) = target.enabled { continue; }
+            target_names.push(target.name.clone());
+            let output = match target.kind.as_str() {
+                "executable" => format!("{}/{}", target.out_dir, target.name),
+                "staticlib" => format!("{}/lib{}.a", target.out_dir, target.name),
+                "dynamiclib" => format!("{}/lib{}.so", target.out_dir, target.name),
+                _ => continue,
+            };
+            outputs.push(output);
+        }
+        // .PHONY
+        makefile.push_str(&format!(".PHONY: {} clean\n\n", target_names.join(" ")));
+        // clean
+        makefile.push_str("clean:\n");
+        makefile.push_str(&format!("\trm -f {}\n", outputs.join(" ")));
+        std::fs::write("Makefile", makefile)?;
+        println!("Makefile сгенерирован.");
         Ok(())
     }
 }
@@ -511,9 +611,12 @@ fn build_target_static(target: crate::config::TargetConfig, dependencies: Option
     for source in &target.sources {
         command.arg(source);
     }
-    if let Some(linker_flags) = &target.linker_flags {
-        for flag in linker_flags {
-            command.arg(flag);
+    // Добавляем MacOS frameworks
+    if target.os_target.to_lowercase() == "macos" {
+        if let Some(frameworks) = &target.frameworks {
+            for fw in frameworks {
+                command.arg("-framework").arg(fw);
+            }
         }
     }
     match fs::create_dir(target.out_dir.clone()) {
@@ -533,6 +636,10 @@ fn build_target_static(target: crate::config::TargetConfig, dependencies: Option
         _ => anyhow::bail!("Unknown target kind: {}", target.kind),
     };
     command.arg("-o").arg(&output);
+    
+    // Печатаем сгенерированную команду
+    println!("[build] Generated command: {:?}", command);
+    
     let status = command.status()?;
     if !status.success() {
         anyhow::bail!("Failed to build target: {}", target.name);
@@ -595,3 +702,4 @@ fn fetch_git_dependency_static(dep: crate::config::Dependency, force_rebuild: bo
     }
     Ok(())
 }
+

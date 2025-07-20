@@ -11,6 +11,7 @@ pub struct TargetConfig {
     pub defines: Option<Vec<String>>,
     pub linker_flags: Option<Vec<String>>,
     pub compiler_flags: Option<Vec<String>>,
+    pub frameworks: Option<Vec<String>>, // MacOS frameworks
     pub os_target: String,
     pub compiler: String,
     pub pre_build_scripts: Option<Vec<String>>, // скрипты до сборки
